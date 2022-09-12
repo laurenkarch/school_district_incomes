@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset=utf-8 />
+  <title>Lab 9</title>
+  <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+  <link href='http://fonts.googleapis.com/css?family=Lato' rel='stylesheet' type='text/css'>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"
+    integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.8.0/dist/leaflet.css"
+    integrity="sha512-hoalWLoI8r4UszCkZ5kL8vayOGVae1oxXe/2A4AO6J9+580uKHDO3JdHb7NzwwzK5xr/Fs0W40kiNHxM9vyTtQ=="
+    crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.8.0/dist/leaflet.js"
+    integrity="sha512-BB3hKbKWOc9Ez/TAwyWxNXeoV9c1v6FIeYiBieIWkpLjauysF18NzgR1MBNBXf8/KABdlkX68nAhlwcDFLGPCQ=="
+    crossorigin=""></script>
+  <!-- add the simple stats library -->
+  <script src="https://unpkg.com/simple-statistics@7.6.0/dist/simple-statistics.min.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #0D0000;
+      font-family: Lato, sans-serif;
+      color: whitesmoke;
+    }
+
+    header {
+      width: 80%;
+      margin: 10px auto 10px auto;
+    }
+
+    h1 {
+      display: inline-block;
+      margin-right: 20px;
+      color: whitesmoke;
+    }
+
+    h2 {
+      display: inline-block;
+      color: lightblue;
+    }
+
+    p {
+      display: inline-block;
+      color: lightblue;
+    }
+
+    #map {
+      width: 80%;
+      height: 540px;
+      margin: 10px 10%;
+      background: #0D0000;
+    }
+
+    footer {
+      padding: 6px 10%;
+      width: 80%;
+    }
+
+    .legend {
+      padding: 6px 8px;
+      font-size: 1em;
+      background: rgba(255, 255, 255, 0.8);
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+      border-radius: 5px;
+    }
+
+    .legend h3 {
+      font-size: 1.1em;
+      font-weight: normal;
+      color: #001323;
+      margin: 0 0 10px 0;
+    }
+
+    .legend span {
+      width: 20px;
+      height: 20px;
+      float: left;
+      margin: 0 10px 4px 0;
+    }
+
+    .legend label {
+      font-size: 1.1em;
+    }
+
+    .legend label:after {
+      content: '';
+      display: block;
+      clear: both;
+    }
+
+    .leaflet-bar a {
+      /* Override the default style for Leaflet's zoom  */
+      background: rgba(100, 100, 100, 0.9);
+      color: rgba(244, 244, 244, 0.8);
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>Lab 9</h1>
+    <h2>Patterns of US Rental Prices</h2>
+  </header>
+
+  <div id='map'></div>
+
+  <footer>
+    <p>Map authored by Lauren Karch</p>
+    <p>More information.
+
+    </p>
+  </footer>
+
+
+  <!-- add jQuery JS script -->
+
+  <script>
+    $("h1").html("Patterns of US Rental Prices");
+    //this puts the map on the page
+    var options = {
+      center: [41.85, -87.65],
+      zoom: 4,
+      zoomSnap: .1,
+      zoomControl: false
+    }
+    var map = L.map('map', options);
+    map.addControl(L.control.zoom({ position: 'topright' }));
+    var nameValue = "NAME",
+      rentValue = "RENT";
+
+    //using the median rent layer for counties this time
+    $.getJSON("data/counties_median_rent_2015.json", function (data) {
+      L.geoJson(data, {
+        style: function (feature) {
+          return {
+            color: '#dddddd',
+            weight: 1,
+            fillOpacity: 1,
+            fillColor: '#'
+          };
+        }
+      }).addTo(map);
+    });
+
+    var countyLayer = $.getJSON("data/counties_median_rent_2015.json", function (data) {
+
+      var dataLayer = L.geoJson(data, {
+
+        filter: function (feature) {
+        if (feature.properties.RENT != "null") {
+            return feature;
+        }
+    },
+        style: function (feature) {
+          return {
+            color: '#dddddd',
+            weight: 1,
+            fillOpacity: 1,
+          };
+        },
+        onEachFeature: function (feature, layer) {
+          layer.bindPopup(`${feature.properties.NAME} County<br> Median Rent: ${feature.properties.RENT}`);
+        } 
+
+      }).addTo(map);
+
+      // call to new function here gets the data out of the
+      // callback function
+      drawMap(dataLayer);
+    });
+
+    function drawMap(dataLayer) {
+      var breaks = getClassBreaks(dataLayer);
+      console.log(breaks);
+      dataLayer.eachLayer(function (layer) {
+        var props = layer.feature.properties;
+        layer.setStyle({
+          fillColor: getColor(props[rentValue], breaks)
+        });
+      });
+      var legend = drawLegend(breaks)
+
+    }
+
+    function getClassBreaks(dataLayer) {
+
+      // create empty Array for storing values
+      var values = [];
+
+      // loop through all the counties
+      dataLayer.eachLayer(function (layer) {
+        var props = layer.feature.properties;
+        var value = props[rentValue];
+        values.push(value);
+      });
+      console.log(values);
+
+      // determine similar clusters
+      var clusters = ss.ckmeans(values, 5);
+
+      // create an array of the lowest value within each cluster
+      var breaks = clusters.map(function (cluster) {
+        return [cluster[0], cluster.pop()];
+      });
+      console.log(breaks);
+
+      return breaks; // return Array of class breaks
+    } // end getClassBreaks function
+    function getColor(d, breaks) {
+      if (d <= breaks[0][1]) {
+        return '#253494';
+      } else if (d <= breaks[1][1]) {
+        return '#2c7fb8';
+      } else if (d <= breaks[2][1]) {
+        return '#41b6c4';
+      } else if (d <= breaks[3][1]) {
+        return '#a1dab4';
+      } else if (d <= breaks[4][1]) {
+        return '#ffffcc';
+      }
+    } // end getColor
+
+    function drawLegend(breaks) {
+
+      // create a new Leaflet control object, and position it top left
+      var legend = L.control({ position: 'topleft' });
+
+      // when the legend is added to the map
+      legend.onAdd = function () {
+
+        // create a new HTML <div> element and give it a class name of "legend"
+        var div = L.DomUtil.create('div', 'legend');
+
+        // for each of our breaks
+        for (var i = 0; i < breaks.length; i++) {
+          // determine the color associated with each break value,
+          // including the lower range value
+          var color = getColor(breaks[i][0], breaks);
+
+          // concatenate a <span> tag styled with the color and the range values
+          // of that class and include a label with the low and a high ends of that class range
+          div.innerHTML +=
+            `<span style="background:${color}"></span>
+      <label>${(breaks[i][0]).toLocaleString()}&mdash;
+      ${(breaks[i][1]).toLocaleString()}</label>`;
+        }
+
+        // return the populated div to be added to the map
+        return div;
+      };
+
+      // add the legend to the map
+      legend.addTo(map);
+    }
+
+
+
+
+    function drawLegend(breaks) {
+
+      // create a new Leaflet control object, and position it top left
+      var legend = L.control({ position: 'topleft' });
+      // when the legend is added to the map
+      legend.onAdd = function () {
+
+        // create a new HTML <div> element and give it a class name of "legend"
+        var div = L.DomUtil.create('div', 'legend');
+
+
+        div.innerHTML = `<h3>Median Rent :</h3>`;
+
+        // for each of our breaks
+        for (var i = 0; i < breaks.length; i++) {
+          // determine the color associated with each break value,
+          // including the lower range value
+          var color = getColor(breaks[i][0], breaks);
+
+          // concatenate a <span> tag styled with the color and the range values
+          // of that class and include a label with the low and a high ends of that class range
+          div.innerHTML +=
+            `<span style="background:${color}"></span>
+<label>$${(breaks[i][0] * 1).toLocaleString()}&mdash;
+$${(breaks[i][1] * 1).toLocaleString()}</label>`;
+        }
+
+        // return the populated div to be added to the map
+        return div;
+      };
+
+      // add the legend to the map
+      legend.addTo(map);
+    }
+
+  </script>
+
+
+
+</body>
+
+</html>
