@@ -131,7 +131,6 @@
     var nameValue = "districtName",
       incomeValue = "medianIncome";
 
-    //using the median rent layer for counties this time
     $.getJSON("data/district_incomes84.geojson", function (data) {
       L.geoJson(data, {
         style: function (feature) {
@@ -144,13 +143,13 @@
     
         style: function (feature) {
           return {
-            color: '#dddddd',
-            weight: 1,
+            color: '#FFFFFF',
+            weight: .1,
             fillOpacity: 1,
           };
         },
         onEachFeature: function (feature, layer) {
-          layer.bindPopup(`${feature.properties.districtName} <br> Median Income: ${feature.properties.medianIncome}`);
+          layer.bindPopup(`<b>${feature.properties.districtName}</b> <br> Median Income: $ ${feature.properties.medianIncome}`);
         }
 
       }).addTo(map);
@@ -187,7 +186,7 @@
       console.log(values);
 
       // determine similar clusters
-      var clusters = ss.ckmeans(values, 5);
+      var clusters = ss.ckmeans(values, 8);
 
       // create an array of the lowest value within each cluster
       var breaks = clusters.map(function (cluster) {
@@ -199,16 +198,21 @@
     } // end getClassBreaks function
     function getColor(d, breaks) {
       if (d <= breaks[0][1]) {
-        return '#253494';
+        return '#f7fcf0';
       } else if (d <= breaks[1][1]) {
-        return '#2c7fb8';
+        return '#e0f3db';
       } else if (d <= breaks[2][1]) {
-        return '#41b6c4';
+        return '#ccebc5';
       } else if (d <= breaks[3][1]) {
-        return '#a1dab4';
+        return '#a8ddb5';
       } else if (d <= breaks[4][1]) {
-        return '#ffffcc';
-      }
+        return '#7bccc4'
+      } else if (d <= breaks[5][1]) {
+        return '#4eb3d3'
+      } else if (d <= breaks[6][1]) {
+        return '#2b8cbe';
+      } else if (d <= breaks[7][1]) {
+        return '#08589e';}
     } // end getColor
 
     function drawLegend(breaks) {
