@@ -101,8 +101,8 @@
 
 <body>
   <header>
-    <h1>Lab 9</h1>
-    <h2>By District</h2>
+    <h1>Median Incomes of Ohio School Districts</h1>
+    <h2>2018</h2>
   </header>
 
   <div id='map'></div>
@@ -118,19 +118,170 @@
   <!-- add jQuery JS script -->
 
   <script>
-    $("h1").html("Median Incomes in Ohio's School Districts");
-   
+    $("h1").html("Median Incomes of Ohio School Districts");
+    //this puts the map on the page
     var options = {
-    center: [40.15, -82.98],
-    zoom: 5,
-    zoomSnap: .1,
-    zoomControl: false
-}
-var map = L.map('map', options);
-$.getJSON("data\school_district_incomes.json", function(data) {
-  // the data loaded from the file is accessible here within this function scope!
-  console.log(data);
-});
+      center: [39.98, -82.98],
+      zoom: 7.35,
+      zoomSnap: .1,
+      zoomControl: false
+    }
+    var map = L.map('map', options);
+    map.addControl(L.control.zoom({ position: 'topright' }));
+    var nameValue = "districtName",
+      incomeValue = "medianIncome";
+
+    //using the median rent layer for counties this time
+    $.getJSON("data/district_incomes84.geojson", function (data) {
+      L.geoJson(data, {
+        style: function (feature) {
+        }
+      }).addTo(map);
+    });
+    var districtLayer = $.getJSON("data/district_incomes84.geojson", function (data) {
+
+      var dataLayer = L.geoJson(data, {
+    
+        style: function (feature) {
+          return {
+            color: '#dddddd',
+            weight: 1,
+            fillOpacity: 1,
+          };
+        },
+        onEachFeature: function (feature, layer) {
+          layer.bindPopup(`${feature.properties.districtName} <br> Median Income: ${feature.properties.medianIncome}`);
+        }
+
+      }).addTo(map);
+
+      // call to new function here gets the data out of the
+      // callback function
+      drawMap(dataLayer);
+    });
+
+    function drawMap(dataLayer) {
+      var breaks = getClassBreaks(dataLayer);
+      console.log(breaks);
+      dataLayer.eachLayer(function (layer) {
+        var props = layer.feature.properties;
+        layer.setStyle({
+          fillColor: getColor(props[incomeValue], breaks)
+        });
+      });
+      var legend = drawLegend(breaks)
+
+    }
+
+    function getClassBreaks(dataLayer) {
+
+      // create empty Array for storing values
+      var values = [];
+
+      // loop through all the counties
+      dataLayer.eachLayer(function (layer) {
+        var props = layer.feature.properties;
+        var value = props[incomeValue];
+        values.push(value);
+      });
+      console.log(values);
+
+      // determine similar clusters
+      var clusters = ss.ckmeans(values, 5);
+
+      // create an array of the lowest value within each cluster
+      var breaks = clusters.map(function (cluster) {
+        return [cluster[0], cluster.pop()];
+      });
+      console.log(breaks);
+
+      return breaks; // return Array of class breaks
+    } // end getClassBreaks function
+    function getColor(d, breaks) {
+      if (d <= breaks[0][1]) {
+        return '#253494';
+      } else if (d <= breaks[1][1]) {
+        return '#2c7fb8';
+      } else if (d <= breaks[2][1]) {
+        return '#41b6c4';
+      } else if (d <= breaks[3][1]) {
+        return '#a1dab4';
+      } else if (d <= breaks[4][1]) {
+        return '#ffffcc';
+      }
+    } // end getColor
+
+    function drawLegend(breaks) {
+
+      // create a new Leaflet control object, and position it top left
+      var legend = L.control({ position: 'topleft' });
+
+      // when the legend is added to the map
+      legend.onAdd = function () {
+
+        // create a new HTML <div> element and give it a class name of "legend"
+        var div = L.DomUtil.create('div', 'legend');
+
+        // for each of our breaks
+        for (var i = 0; i < breaks.length; i++) {
+          // determine the color associated with each break value,
+          // including the lower range value
+          var color = getColor(breaks[i][0], breaks);
+
+          // concatenate a <span> tag styled with the color and the range values
+          // of that class and include a label with the low and a high ends of that class range
+          div.innerHTML +=
+            `<span style="background:${color}"></span>
+<label>${(breaks[i][0]).toLocaleString()}&mdash;
+${(breaks[i][1]).toLocaleString()}</label>`;
+        }
+
+        // return the populated div to be added to the map
+        return div;
+      };
+
+      // add the legend to the map
+      legend.addTo(map);
+    }
+
+
+
+
+    function drawLegend(breaks) {
+
+      // create a new Leaflet control object, and position it top left
+      var legend = L.control({ position: 'topleft' });
+      // when the legend is added to the map
+      legend.onAdd = function () {
+
+        // create a new HTML <div> element and give it a class name of "legend"
+        var div = L.DomUtil.create('div', 'legend');
+
+
+        div.innerHTML = `<h3>Median Income :</h3>`;
+
+        // for each of our breaks
+        for (var i = 0; i < breaks.length; i++) {
+          // determine the color associated with each break value,
+          // including the lower range value
+          var color = getColor(breaks[i][0], breaks);
+
+          // concatenate a <span> tag styled with the color and the range values
+          // of that class and include a label with the low and a high ends of that class range
+          div.innerHTML +=
+            `<span style="background:${color}"></span>
+<label>$${(breaks[i][0] * 1).toLocaleString()}&mdash;
+$${(breaks[i][1] * 1).toLocaleString()}</label>`;
+        }
+
+        // return the populated div to be added to the map
+        return div;
+      };
+
+      // add the legend to the map
+      legend.addTo(map);
+    }
+
 
   </script>
 
